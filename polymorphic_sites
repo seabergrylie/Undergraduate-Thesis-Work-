@@ -1,0 +1,33 @@
+from Bio import SeqIO
+
+def count_segregating_sites(fasta_file):
+    # Read sequences from the FASTA file
+    sequences = [str(record.seq) for record in SeqIO.parse(fasta_file, "fasta")]
+
+    # Ensure all sequences are of the same length
+    if not all(len(seq) == len(sequences[0]) for seq in sequences):
+        raise ValueError("Sequences are not of the same length")
+
+    segregating_sites_count = 0
+
+    # Iterate over each position
+    for position in range(len(sequences[0])):
+        column = [sequence[position] for sequence in sequences]
+        unique_nucleotides = set(column)
+
+        # Increment count if more than one unique nucleotide/amino acid found
+        if len(unique_nucleotides) > 1:
+            segregating_sites_count += 1
+
+    return segregating_sites_count
+
+#for record in SeqIO.parse('filepath', "fasta"):
+    #print(record.id, len(record.seq))
+
+# Example usage
+fasta_file = "filepath"
+print("Number of segregating sites:", count_segregating_sites(fasta_file))
+
+
+
+
