@@ -1,0 +1,56 @@
+#for this script, you manually create fasta files comparing each of your populations to each other. 
+#only two populations are compared at one time 
+
+from Bio import SeqIO
+from collections import defaultdict
+import numpy as np
+
+def parse_fasta(fasta_file):
+    populations = defaultdict(list)
+    for record in SeqIO.parse(fasta_file, "fasta"):
+        population_id = record.id.split('_')[0]  # Adjust based on your FASTA headers
+        populations[population_id].append(str(record.seq).upper())
+    return populations
+
+def calculate_allele_frequencies(populations):
+    allele_frequencies = defaultdict(lambda: defaultdict(dict))
+    snp_positions = set()
+    for pop, sequences in populations.items():
+        seq_length = len(sequences[0])
+        for i in range(seq_length):
+            alleles = [seq[i] for seq in sequences]
+            if len(set(alleles)) > 1:  # This position is a SNP
+                snp_positions.add(i)
+                allele_freq = {allele: alleles.count(allele) / len(alleles) for allele in set(alleles)}
+                allele_frequencies[i][pop] = allele_freq
+    return allele_frequencies, snp_positions
+
+def calculate_pairwise_fst(allele_frequencies, populations, snp_positions):
+    fst_results = defaultdict(dict)
+    population_keys = list(populations.keys())
+    for i, pop1 in enumerate(population_keys[:-1]):
+        for pop2 in population_keys[i+1:]:
+            fst_list = []
+            for pos in snp_positions:
+                if pos in allele_frequencies and pop1 in allele_frequencies[pos] and pop2 in allele_frequencies[pos]:
+                    freqs_pop1 = allele_frequencies[pos][pop1]
+                    freqs_pop2 = allele_frequencies[pos][pop2]
+                    alleles = set(freqs_pop1.keys()).union(set(freqs_pop2.keys()))
+                    hs = np.mean([freqs_pop1.get(allele, 0) for allele in alleles] + [freqs_pop2.get(allele, 0) for allele in alleles])
+                    ht = np.mean([max(freqs_pop1.get(allele, 0), freqs_pop2.get(allele, 0)) for allele in alleles])
+                    if ht != 0:  # Avoid division by zero
+                        fst = 1 - hs / ht
+                        fst_list.append(fst)
+            if fst_list:  # Avoid empty lists
+                fst_results[f"{pop1}-{pop2}"] = np.mean(fst_list)
+    return fst_results
+
+# Adjust the path to your FASTA file
+fasta_file = 'filepath'
+populations = parse_fasta(fasta_file)
+allele_frequencies, snp_positions = calculate_allele_frequencies(populations)
+fst_results = calculate_pairwise_fst(allele_frequencies, populations, snp_positions)
+
+# Printing the results
+for pair, fst in fst_results.items():
+    print(f"Pairwise F_ST between {pair}: {fst:.4f}")
