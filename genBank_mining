@@ -1,0 +1,38 @@
+from Bio import Entrez, SeqIO
+
+def fetch_coi_sequences(organism_name, email, output_file):
+    Entrez.email = "your@email.address"  # Always provide your email address
+    # Updated search query to include both COI and CO1
+    search_query = f"{organism_name}[Orgn] AND (COI[Gene] OR CO1[Gene] OR COX1[Gene])" #could be written either way
+
+    # Searching for relevant sequence IDs
+    search_handle = Entrez.esearch(db="nucleotide", term=search_query, retmax=500)
+    search_results = Entrez.read(search_handle)
+    search_handle.close()
+    ids = search_results["IdList"]
+
+    # Fetching sequences
+    fetch_handle = Entrez.efetch(db="nucleotide", id=ids, rettype="gb", retmode="text")
+    records = SeqIO.parse(fetch_handle, "genbank")
+
+    # Writing to FASTA file with location info in headers
+    with open(output_file, "w") as f:
+        for record in records:
+            # Extract country from record features or use 'Unknown' if not available
+            country = "Unknown"
+            for feature in record.features:
+                if feature.type == "source":
+                    if "country" in feature.qualifiers:
+                        country = feature.qualifiers["country"][0]
+                        break
+
+# Create FASTA header with location info, including records without specified country
+            description = f"{record.description} | Location: {country}" #wants location
+            record.description = description
+            SeqIO.write(record, f, "fasta")
+
+    fetch_handle.close()
+
+# Usage
+organism = "Species name"  # Replace with the scientific name of your organism
+fetch_coi_sequences(organism, "your@email.address", "filename.fasta")
